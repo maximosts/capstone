@@ -37,9 +37,11 @@ CSRF_TRUSTED_ORIGINS = [
     "https://capstone-production-3005.up.railway.app",
     "https://web-production-b068f4.up.railway.app",
 ]
-# Cookie settings
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
+# Cookie settings — SameSite=None required for cross-origin frontend/backend
+SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SECURE = True
 
 # Application definition
 
