@@ -415,6 +415,21 @@ def generate_plan(request):
 
         plan = generate_meal_plan(profile_obj, targets, restrictions, catalog, mode=mode)
 
+        # ── ALLERGY SAFETY NET: strip any allergen items from final plan ─────────
+        _all_allergy_terms = list({
+            *[str(a).lower() for a in (restrictions.get("allergies") or [])],
+            *[str(e).lower() for e in (restrictions.get("exclusions") or restrictions.get("exclude") or [])],
+            *_csv_to_list(db_profile.allergies),
+            *_csv_to_list(db_profile.exclusions),
+        })
+        if _all_allergy_terms:
+            for _m in plan.get("meals", []):
+                _m["items"] = [
+                    it for it in _m.get("items", [])
+                    if not any(t in (it.get("name") or "").lower() for t in _all_allergy_terms)
+                ]
+        # ── END ALLERGY SAFETY NET ─────────────────────────────────────────────
+
         # Strip unwanted foods from specific meals
         _breakfast_banned = ["buckwheat","groat","kasha","sweet potato"]
         _breakfast = next((m for m in plan.get("meals",[]) if m.get("name")=="Breakfast"), None)
