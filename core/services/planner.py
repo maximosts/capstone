@@ -500,6 +500,19 @@ def pick_protein_main(catalog, prefer="chicken"):
          or _pick_best(catalog, include=["chicken","breast"],
                        prefer=["raw","fresh"], avoid=avoid))
 
+def pick_snack_fat(catalog) -> Optional[Dict]:
+    """Fat for snacks — skip olive oil (a cooking oil, not a snack food)."""
+    for include, prefer, avoid_extra in [
+        (["peanut butter"],               ["natural"],               ["candy","sweet","chocolate"]),
+        (["almond butter","cashew butter","sunflower butter"], ["natural","plain"], []),
+        (["almond","walnut","cashew","pecan","pistachio"], ["raw","unsalted","whole"], ["candied","honey","flavored","chocolate"]),
+        (["avocado"],                     ["raw","fresh"],           ["sauce","dip"]),
+        (["dark chocolate"],              ["70","dark","cacao"],     ["candy bar","cookie","milk chocolate"]),
+    ]:
+        f = _pick_best(catalog, include=include, prefer=prefer, avoid=FAT_AVOID+avoid_extra)
+        if f: return f
+    return None
+
 def pick_snack_protein(catalog):
     return (_pick_best(catalog, include=PROTEIN_KW_EGGS,
                        prefer=["whole","raw","fresh"], avoid=["dried","powdered"])
@@ -625,7 +638,7 @@ def normalize_meals_to_structure(plan: dict, catalog: List[Dict]) -> None:
             f = pick_snack_carb(catalog)
             if f: snack["items"].insert(0, _as_item(f, 150 if _classify(f["name"])=="fruit" else 80))
         if _get_slot_item(snack,"fat") is None:
-            f = pick_fat(catalog)
+            f = pick_snack_fat(catalog)
             if f: snack["items"].append(_as_item(f,15))
         _keep_one_per_slot(snack, ["fruit","carb","fat"])
         snack["items"] = [x for x in snack["items"] if x][:2]
@@ -824,9 +837,9 @@ def generate_template_plan(profile: dict, targets: dict, restrictions: dict, cat
     if d_fat:  d_items.append(_as_item(d_fat, 15))
     if d_items: meals.append({"name":"Dinner","items":[x for x in d_items if x][:4]})
 
-    # Snack: fruit/bread + fat
+    # Snack: fruit/bread + fat (no olive oil for snacks)
     s_carb = pick_snack_carb(catalog)
-    s_fat  = pick_fat(catalog)
+    s_fat  = pick_snack_fat(catalog)
     s_items = []
     if s_carb: s_items.append(_as_item(s_carb, 150 if _classify(s_carb["name"])=="fruit" else 80))
     if s_fat:  s_items.append(_as_item(s_fat, 15))

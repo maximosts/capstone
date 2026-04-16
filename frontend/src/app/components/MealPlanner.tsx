@@ -366,7 +366,7 @@ export function MealPlanner() {
       <div className="mb-6">
         <h2 className="mb-1">Meal Planner</h2>
         <p className="text-muted-foreground text-sm">
-          Generate a database-grounded daily plan (session-auth + CSRF protected)
+          Generate a personalised daily meal plan based on your calorie target
         </p>
       </div>
 

@@ -450,11 +450,22 @@ export function CalorieTracker() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Category</Label>
-                    <Input
-                      placeholder="e.g. snack, protein"
+                    <select
                       value={createForm.category}
                       onChange={e => setCreateForm(f => ({ ...f, category: e.target.value }))}
-                    />
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="custom">Custom</option>
+                      <option value="Proteins">Proteins</option>
+                      <option value="Carbohydrates">Carbohydrates</option>
+                      <option value="Fats and Oils">Fats and Oils</option>
+                      <option value="Vegetables">Vegetables</option>
+                      <option value="Fruits">Fruits</option>
+                      <option value="Dairy">Dairy</option>
+                      <option value="Snacks">Snacks</option>
+                      <option value="Beverages">Beverages</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
 
