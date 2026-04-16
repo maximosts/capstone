@@ -69,6 +69,17 @@ def maybe_set(d: dict, model_cls, field: str, value):
     if model_has_field(model_cls, field):
         d[field] = value
 
+def is_clean_name(name: str) -> bool:
+    """Reject USDA verbose names like 'CHICKEN, BROILERS OR FRYERS, BREAST, MEAT ONLY'."""
+    if len(name) > 65:
+        return False
+    if name.count(",") >= 3:
+        return False
+    letters = [c for c in name if c.isalpha()]
+    if letters and sum(1 for c in letters if c.isupper()) / len(letters) > 0.7:
+        return False
+    return True
+
 def norm_number(n):
     """Normalize nutrient number to plain string (strip decimals like '269.3' -> '269')."""
     s = str(n)
@@ -274,6 +285,9 @@ class Command(BaseCommand):
                         fdc_id = f.get("fdcId")
                         name   = (f.get("description") or "").strip()
                         if not fdc_id or not name:
+                            continue
+
+                        if not is_clean_name(name):
                             continue
 
                         if debug and idx < 3:

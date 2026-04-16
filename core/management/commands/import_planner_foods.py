@@ -228,6 +228,24 @@ def _model_has(model, field):
     return any(f.name == field for f in model._meta.get_fields())
 
 
+def _is_clean_name(name: str) -> bool:
+    """
+    Return True only for simple, readable food names.
+    Rejects USDA verbose entries like "CHICKEN, BROILERS OR FRYERS, BREAST, MEAT ONLY, COOKED, ROASTED"
+    """
+    # Too long
+    if len(name) > 65:
+        return False
+    # 3+ commas → overly specific USDA description
+    if name.count(",") >= 3:
+        return False
+    # All-caps (classic SR Legacy verbose style)
+    letters = [c for c in name if c.isalpha()]
+    if letters and sum(1 for c in letters if c.isupper()) / len(letters) > 0.7:
+        return False
+    return True
+
+
 class Command(BaseCommand):
     help = "Import targeted food categories needed by the meal planner (fats, veg, fruit, etc.)"
 
@@ -300,6 +318,10 @@ class Command(BaseCommand):
                 fdc_id = f.get("fdcId")
                 name   = (f.get("description") or "").strip()
                 if not fdc_id or not name:
+                    grand_skipped += 1
+                    continue
+
+                if not _is_clean_name(name):
                     grand_skipped += 1
                     continue
 
