@@ -1466,6 +1466,9 @@ def chat(request):
             convo.save(update_fields=["updated_at"])
 
         return Response({"reply": reply, "conversation_id": convo.id, "conversation_title": convo.title})
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        return Response({"error": f"AI error: {e} | {body}"}, status=502)
     except Exception as e:
         return Response({"error": f"AI error: {e}"}, status=502)
 
