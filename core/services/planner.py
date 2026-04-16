@@ -366,11 +366,15 @@ def build_catalog(profile: dict, targets: dict, limit: int=200, restrictions: Op
 
     allergy_terms: List[str] = []
     if restrictions:
+        def _expand(term):
+            t = str(term).lower().strip()
+            yield t
+            if t.endswith("s") and len(t) > 3:
+                yield t[:-1]  # "peanuts" → "peanut" to match "peanut butter"
         for a in (restrictions.get("allergies") or []):
-            allergy_terms.append(str(a).lower())
-        # support both "exclusions" and "exclude" key names
+            allergy_terms.extend(_expand(a))
         for e in (restrictions.get("exclusions") or restrictions.get("exclude") or []):
-            allergy_terms.append(str(e).lower())
+            allergy_terms.extend(_expand(e))
 
     filtered = [f for f in raw if _macro_ok(f) and not _hard_excluded(f.get("name",""), allergy_terms)]
     staples  = _force_include_staples(filtered, allergy_terms)

@@ -301,7 +301,15 @@ def generate_plan(request):
 
         # Always merge saved profile allergies/exclusions so they can never be skipped
         def _csv_to_list(s):
-            return [x.strip().lower() for x in (s or "").split(",") if x.strip()]
+            terms = []
+            for x in (s or "").split(","):
+                t = x.strip().lower()
+                if not t: continue
+                terms.append(t)
+                # Also add singular form so "peanuts" matches "peanut butter"
+                if t.endswith("s") and len(t) > 3:
+                    terms.append(t[:-1])
+            return terms
         db_allergies  = _csv_to_list(db_profile.allergies)
         db_exclusions = _csv_to_list(db_profile.exclusions)
         merged_restrictions = dict(restrictions)
