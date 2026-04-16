@@ -253,10 +253,28 @@ export function MealPlanner() {
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
+
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const [profile, setProfile] = useState<ProfileApiResponse | null>(null);
+
+  // Clear cached plan if it contains allergens from current profile
+  useEffect(() => {
+    if (!plan || !profile) return;
+    const allergyTerms = [
+      ...parseCommaList(profile.allergies),
+      ...parseCommaList(profile.exclusions),
+    ].map(t => t.toLowerCase());
+    if (allergyTerms.length === 0) return;
+    const hasAllergen = plan.meals.some(m =>
+      m.items.some(it => allergyTerms.some(t => it.name.toLowerCase().includes(t)))
+    );
+    if (hasAllergen) {
+      setPlan(null);
+      sessionStorage.removeItem(PLAN_STORAGE_KEY);
+    }
+  }, [profile]);
 
   // ✅ NEW: swaps state
   const [swaps, setSwaps] = useState<Swap[]>([]);

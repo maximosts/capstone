@@ -299,6 +299,18 @@ def generate_plan(request):
             **(request.data.get("profile", {}) or {}),
         }
 
+        # Always merge saved profile allergies/exclusions so they can never be skipped
+        def _csv_to_list(s):
+            return [x.strip().lower() for x in (s or "").split(",") if x.strip()]
+        db_allergies  = _csv_to_list(db_profile.allergies)
+        db_exclusions = _csv_to_list(db_profile.exclusions)
+        merged_restrictions = dict(restrictions)
+        merged_allergies  = list({*[str(a).lower() for a in (restrictions.get("allergies") or [])], *db_allergies})
+        merged_exclusions = list({*[str(e).lower() for e in (restrictions.get("exclusions") or restrictions.get("exclude") or [])], *db_exclusions})
+        merged_restrictions["allergies"]  = merged_allergies
+        merged_restrictions["exclusions"] = merged_exclusions
+        restrictions = merged_restrictions
+
         catalog = build_catalog(profile_obj, targets, limit=150, restrictions=restrictions)
 
         # ── GUARANTEED fat + veg injection ────────────────────────────────────
