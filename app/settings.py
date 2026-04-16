@@ -34,6 +34,8 @@ ALLOWED_HOSTS = ["*"]
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://capstone-production-3005.up.railway.app",
+    "https://web-production-b068f4.up.railway.app",
 ]
 # Cookie settings
 SESSION_COOKIE_SAMESITE = "Lax"
