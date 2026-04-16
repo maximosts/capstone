@@ -1436,21 +1436,13 @@ def chat(request):
 
     try:
         import os
-        groq_payload = {
-            "model": "llama-3.1-8b-instant",
-            "messages": [{"role": "system", "content": system_prompt}] + messages,
-        }
-        req = urllib.request.Request(
-            "https://api.groq.com/openai/v1/chat/completions",
-            data=_json.dumps(groq_payload).encode(),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.environ.get('GROQ_API_KEY', '')}",
-            },
+        from groq import Groq
+        client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "system", "content": system_prompt}] + messages,
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            result = _json.loads(resp.read())
-        reply = result["choices"][0]["message"]["content"]
+        reply = completion.choices[0].message.content
 
         # Save messages
         last_user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
@@ -1466,9 +1458,6 @@ def chat(request):
             convo.save(update_fields=["updated_at"])
 
         return Response({"reply": reply, "conversation_id": convo.id, "conversation_title": convo.title})
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        return Response({"error": f"AI error: {e} | {body}"}, status=502)
     except Exception as e:
         return Response({"error": f"AI error: {e}"}, status=502)
 
