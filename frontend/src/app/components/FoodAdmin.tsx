@@ -11,12 +11,6 @@ type ApiResponse = {
   categories: CategoryStat[]; foods: FoodRow[];
 };
 
-const QUICK_CLEAN = [
-  { label: "Baby Foods",                              action: { category: "Baby Foods" } },
-  { label: "American Indian/Alaska Native Foods",     action: { category: "American Indian/Alaska Native Foods" } },
-  { label: "Survey (FNDDS)",                          action: { category: "Survey (FNDDS)" } },
-  { label: "Long names >80 chars (hyper-specific cuts)", action: { min_name_len: 80 } },
-];
 
 export function FoodAdmin() {
   const [data, setData]         = useState<ApiResponse | null>(null);
@@ -98,17 +92,6 @@ export function FoodAdmin() {
       <p style={{ fontSize:13,color:"#64748b",marginBottom:24 }}>{data ? `${data.total.toLocaleString()} foods` : "Loading…"}</p>
 
       {err && <div style={{ background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#dc2626" }}>{err}</div>}
-
-      {/* Quick clean */}
-      <div style={{ background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:16,marginBottom:24 }}>
-        <p style={{ fontWeight:600,fontSize:14,marginBottom:12 }}>⚡ Quick Cleanup</p>
-        {QUICK_CLEAN.map(({ label, action }) => (
-          <div key={label} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #f1f5f9" }}>
-            <span style={{ fontSize:13 }}>{label}</span>
-            <button onClick={() => setConfirm({ label, action })} style={{ padding:"4px 12px",borderRadius:6,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",cursor:"pointer",fontSize:12 }}>🗑 Delete</button>
-          </div>
-        ))}
-      </div>
 
       {/* Browser */}
       <div style={{ display:"grid",gridTemplateColumns:"200px 1fr",gap:16 }}>

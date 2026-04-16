@@ -244,8 +244,15 @@ function MealCard({
   );
 }
 
+const PLAN_STORAGE_KEY = "anms_last_meal_plan";
+
 export function MealPlanner() {
-  const [plan, setPlan] = useState<PlanResponse | null>(null);
+  const [plan, setPlan] = useState<PlanResponse | null>(() => {
+    try {
+      const saved = sessionStorage.getItem(PLAN_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -331,6 +338,7 @@ export function MealPlanner() {
       });
 
       setPlan(res as PlanResponse);
+      try { sessionStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(res)); } catch {}
 
 
     } catch (e: any) {
