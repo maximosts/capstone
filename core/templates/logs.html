@@ -1,0 +1,99 @@
+<!-- core/templates/logs.html -->
+{% extends "base.html" %}
+{% block title %}Logs | NutriAI{% endblock %}
+
+{% block content %}
+<div class="header">
+  <h2 class="header__title">Logs</h2>
+  <div class="header__sub">Track your weight and calorie intake over time</div>
+</div>
+
+<div class="grid grid--2">
+  <!-- Weight -->
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <div class="card__title">Weight Log</div>
+        <div class="card__desc">Calls <code>/api/log-weight/</code></div>
+      </div>
+    </div>
+    <div class="card__body">
+      <label class="label">Weight (kg)</label>
+      <input id="weightKg" class="input" type="number" step="0.1" placeholder="82.5">
+
+      <label class="label">Auto update Bayesian target</label>
+      <select id="weightAuto" class="select">
+        <option value="true" selected>true</option>
+        <option value="false">false</option>
+      </select>
+
+      <div style="height:12px"></div>
+      <button class="btn" type="button" onclick="Logs.logWeight()">Add Weight Entry</button>
+      <div class="hint">Response appears below.</div>
+
+      <div style="height:12px"></div>
+      <pre id="weightOut" style="margin:0; background:var(--soft); border:1px solid var(--border); border-radius:14px; padding:12px; overflow:auto;">—</pre>
+    </div>
+  </div>
+
+  <!-- Intake -->
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <div class="card__title">Calorie Intake</div>
+        <div class="card__desc">Calls <code>/api/log-intake/</code></div>
+      </div>
+    </div>
+    <div class="card__body">
+      <label class="label">Calories (kcal)</label>
+      <input id="intakeKcal" class="input" type="number" placeholder="2800">
+
+      <label class="label">Auto update Bayesian target</label>
+      <select id="intakeAuto" class="select">
+        <option value="true" selected>true</option>
+        <option value="false">false</option>
+      </select>
+
+      <div style="height:12px"></div>
+      <button class="btn" type="button" onclick="Logs.logIntake()">Add Intake Entry</button>
+
+      <div style="height:12px"></div>
+      <pre id="intakeOut" style="margin:0; background:var(--soft); border:1px solid var(--border); border-radius:14px; padding:12px; overflow:auto;">—</pre>
+    </div>
+  </div>
+</div>
+
+<script>
+window.Logs = (function(){
+  async function logWeight(){
+    const w = Number(document.getElementById("weightKg").value);
+    const auto = document.getElementById("weightAuto").value === "true";
+    const out = document.getElementById("weightOut");
+    try{
+      const data = await Nutri.apiPost("/api/log-weight/", { weight_kg: w, auto_update: auto });
+      out.textContent = JSON.stringify(data, null, 2);
+      Nutri.toast("Success", "Weight logged.");
+    }catch(e){
+      out.textContent = "Error: " + (e.message || "Failed");
+      Nutri.toast("Error", e.message || "Failed");
+    }
+  }
+
+  async function logIntake(){
+    const k = Number(document.getElementById("intakeKcal").value);
+    const auto = document.getElementById("intakeAuto").value === "true";
+    const out = document.getElementById("intakeOut");
+    try{
+      const data = await Nutri.apiPost("/api/log-intake/", { kcal: k, auto_update: auto });
+      out.textContent = JSON.stringify(data, null, 2);
+      Nutri.toast("Success", "Intake logged.");
+    }catch(e){
+      out.textContent = "Error: " + (e.message || "Failed");
+      Nutri.toast("Error", e.message || "Failed");
+    }
+  }
+
+  return { logWeight, logIntake };
+})();
+</script>
+{% endblock %}

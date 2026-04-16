@@ -1,0 +1,48 @@
+<!-- core/templates/profile.html -->
+{% extends "base.html" %}
+{% block title %}Profile | NutriAI{% endblock %}
+
+{% block content %}
+<div class="header">
+  <h2 class="header__title">Profile</h2>
+  <div class="header__sub">Manage your preferences and targets</div>
+</div>
+
+<div class="card">
+  <div class="card__head">
+    <div>
+      <div class="card__title">Profile Details</div>
+      <div class="card__desc">This page can be wired to your existing profile form/view.</div>
+    </div>
+  </div>
+
+  <div class="card__body">
+    <div class="grid grid--2">
+      <div>
+        <label class="label">Goal</label>
+        <input class="input" value="{{ profile.goal|default:'' }}" placeholder="fat loss / muscle gain">
+      </div>
+      <div>
+        <label class="label">Activity</label>
+        <input class="input" value="{{ profile.activity|default:'' }}" placeholder="light / moderate / active">
+      </div>
+    </div>
+
+    <div class="grid grid--2" style="margin-top:12px">
+      <div>
+        <label class="label">Allergies</label>
+        <input class="input" value="{{ profile.allergies|default:'' }}" placeholder="peanut, shellfish">
+      </div>
+      <div>
+        <label class="label">Exclude foods</label>
+        <input class="input" value="{{ profile.exclusions|default:'' }}" placeholder="pork, lamb">
+      </div>
+    </div>
+
+    <div class="hint">
+      If you already have a Django view + form for profile saving, we’ll plug that in next.
+      For now this matches the Figma layout.
+    </div>
+  </div>
+</div>
+{% endblock %}

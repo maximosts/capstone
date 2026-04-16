@@ -1,0 +1,89 @@
+<!-- core/templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{% block title %}NutriAI{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+  <script defer src="{% static 'core/app.js' %}"></script>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar__top">
+        <div class="brand">
+          <div class="brand__logo">N</div>
+          <div>
+            <div class="brand__name">NutriAI</div>
+            <div class="brand__sub">Nutrition Planner</div>
+          </div>
+        </div>
+      </div>
+
+    <nav class="nav">
+      <a class="nav__link {% if request.path == '/' %}is-active{% endif %}" href="{% url 'dashboard' %}">
+        <span>Dashboard</span>
+      </a>
+      <a class="nav__link {% if '/planner' in request.path %}is-active{% endif %}" href="{% url 'planner' %}">
+        <span>Meal Planner</span>
+      </a>
+      <a class="nav__link {% if '/logs' in request.path %}is-active{% endif %}" href="{% url 'logs' %}">
+        <span>Logs</span>
+      </a>
+      <a class="nav__link {% if '/profile' in request.path %}is-active{% endif %}" href="{% url 'profile' %}">
+        <span>Profile</span>
+      </a>
+      <a class="nav__link" href="/admin/">
+        <span>Admin</span>
+      </a>
+      {% if user.is_authenticated %}
+        <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="nav__link">
+          <span>Logout</span>
+        </button>
+        </form>
+      {% else %}
+        <a class="nav__link" href="{% url 'login' %}">Login</a>
+      {% endif %}
+    </nav>
+
+      <div class="sidebar__bottom">
+        <div class="card card--muted">
+          <div class="card__title">API Token</div>
+          <div class="card__desc">Used for calling protected endpoints.</div>
+
+          <label class="label" for="tokenInput">Token</label>
+          <div class="row row--tight">
+            <input id="tokenInput" class="input" placeholder="Paste token e.g. 6f65..." />
+            <button class="btn btn--secondary" type="button" onclick="Nutri.saveToken()">Save</button>
+          </div>
+          <div class="hint">Stored in <code>localStorage</code> as <code>nutri_token</code>.</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="main__inner">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Pre-fill token box if saved
+    document.addEventListener("DOMContentLoaded", () => {
+      const t = localStorage.getItem("nutri_token") || "";
+      const el = document.getElementById("tokenInput");
+      if (el) el.value = t;
+    });
+  </script>
+</body>
+</html>

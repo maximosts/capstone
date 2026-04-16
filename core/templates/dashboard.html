@@ -1,0 +1,78 @@
+<!-- core/templates/dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Dashboard | NutriAI{% endblock %}
+
+{% block content %}
+<div class="header">
+  <h2 class="header__title">Dashboard</h2>
+  <div class="header__sub">Your nutrition overview and progress tracking</div>
+</div>
+
+<div class="grid grid--3">
+  <div class="card stat">
+    <div class="stat__label">Daily Calories</div>
+    <div class="stat__value">{{ profile.kcal_target|default:"2100" }}</div>
+  </div>
+  <div class="card stat">
+    <div class="stat__label">Protein Target</div>
+    <div class="stat__value">{{ profile.protein_target|default:"160" }}g</div>
+  </div>
+  <div class="card stat">
+    <div class="stat__label">Current Weight</div>
+    <div class="stat__value">{{ profile.weight_kg|default:"—" }}</div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+
+<div class="grid grid--2">
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <div class="card__title">Quick Actions</div>
+        <div class="card__desc">Generate a plan or log progress</div>
+      </div>
+    </div>
+    <div class="card__body">
+      <div class="row">
+        <a class="btn" href="{% url 'planner' %}">Open Meal Planner</a>
+        <a class="btn btn--secondary" href="{% url 'logs' %}">Open Logs</a>
+      </div>
+      <div class="hint">Tip: paste your API token in the sidebar so planner/logs can call the endpoints.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <div class="card__title">Profile</div>
+        <div class="card__desc">Targets and preferences</div>
+      </div>
+      <a class="btn btn--secondary btn--small" href="{% url 'profile' %}">Edit</a>
+    </div>
+    <div class="card__body">
+      <div class="row">
+        <div>
+          <div class="stat__label">Goal</div>
+          <div style="font-weight:900">{{ profile.goal|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="stat__label">Activity</div>
+          <div style="font-weight:900">{{ profile.activity|default:"—" }}</div>
+        </div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="row">
+        <div>
+          <div class="stat__label">Allergies</div>
+          <div class="badge">{{ profile.allergies|default:"None" }}</div>
+        </div>
+        <div>
+          <div class="stat__label">Exclusions</div>
+          <div class="badge">{{ profile.exclusions|default:"None" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

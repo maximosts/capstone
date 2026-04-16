@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:520px; margin: 2rem auto;">
+  <h2 style="margin-top:0;">Login</h2>
+
+  {% if form.errors %}
+    <div class="card" style="border-color:#ef4444;">
+      <strong style="color:#fecaca;">Login failed.</strong>
+      <div style="color:#fecaca; margin-top:.5rem;">Check your username and password.</div>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+
+    <div style="margin-bottom: 1rem;">
+      <label for="id_username">Username</label>
+      <input id="id_username" name="username" type="text" autocomplete="username" required>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <label for="id_password">Password</label>
+      <input id="id_password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+
+    {% if next %}
+      <input type="hidden" name="next" value="{{ next }}">
+    {% endif %}
+
+    <div class="row" style="align-items:center;">
+      <div>
+        <button type="submit">Login</button>
+      </div>
+      <div style="text-align:right;">
+        <a href="{% url 'register' %}">Create an account</a>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

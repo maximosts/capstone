@@ -1,0 +1,188 @@
+<!-- core/templates/planner.html -->
+{% extends "base.html" %}
+{% block title %}Meal Planner | NutriAI{% endblock %}
+
+{% block content %}
+<div class="header">
+  <h2 class="header__title">Meal Planner</h2>
+  <div class="header__sub">Generate personalized meal plans based on your goals</div>
+</div>
+
+<div class="grid grid--2">
+  <!-- Form -->
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <div class="card__title">Generate Plan</div>
+        <div class="card__desc">Calls <code>/api/generate-plan/</code></div>
+      </div>
+      <button class="btn btn--secondary btn--small" type="button" onclick="Planner.fillDefaults()">Defaults</button>
+    </div>
+
+    <div class="card__body">
+      <label class="label">Days</label>
+      <input id="days" class="input" type="number" value="1" min="1" max="7"/>
+
+      <div class="row">
+        <div>
+          <label class="label">Target kcal</label>
+          <input id="kcal" class="input" type="number" value="2800">
+        </div>
+        <div>
+          <label class="label">Protein (g)</label>
+          <input id="protein" class="input" type="number" value="180">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label class="label">Carbs (g)</label>
+          <input id="carbs" class="input" type="number" value="300">
+        </div>
+        <div>
+          <label class="label">Fat (g)</label>
+          <input id="fat" class="input" type="number" value="80">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label class="label">Allergies (comma)</label>
+          <input id="allergies" class="input" placeholder="peanut, shellfish">
+        </div>
+        <div>
+          <label class="label">Exclude (comma)</label>
+          <input id="exclude" class="input" placeholder="pork, lamb">
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+      <button class="btn" type="button" onclick="Planner.generate()">Generate Meal Plan</button>
+
+      <div class="hint">
+        If you see <code>Authentication credentials were not provided</code>, paste your token in the sidebar.
+      </div>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <div class="card__title">Generated Plan</div>
+        <div class="card__desc">Rendered from JSON response</div>
+      </div>
+      <button class="btn btn--secondary btn--small" type="button" onclick="Planner.clear()">Clear</button>
+    </div>
+
+    <div id="planOutput" class="card__body" style="padding:0">
+      <div class="meal" style="border-bottom:none;">
+        <div class="meal__name">No plan yet</div>
+        <div class="meal__kcal">Click “Generate Meal Plan”.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.Planner = (function(){
+  function fillDefaults(){
+    document.getElementById("days").value = 1;
+    document.getElementById("kcal").value = 2800;
+    document.getElementById("protein").value = 180;
+    document.getElementById("carbs").value = 300;
+    document.getElementById("fat").value = 80;
+    document.getElementById("allergies").value = "";
+    document.getElementById("exclude").value = "";
+    Nutri.toast("Defaults", "Filled recommended defaults.");
+  }
+
+  function clear(){
+    const out = document.getElementById("planOutput");
+    out.innerHTML = `
+      <div class="meal" style="border-bottom:none;">
+        <div class="meal__name">No plan yet</div>
+        <div class="meal__kcal">Click “Generate Meal Plan”.</div>
+      </div>`;
+  }
+
+  function renderPlan(data){
+    const out = document.getElementById("planOutput");
+    const meals = data.meals || data.days?.[0]?.meals || [];
+    const totals = data.totals_from_db || data.days?.[0]?.totals || data.totals || null;
+
+    let html = "";
+    if (totals){
+      html += `
+        <div class="meal">
+          <div class="meal__head">
+            <div class="meal__name">Daily Totals</div>
+            <div class="meal__kcal">${Math.round(totals.kcal || 0)} kcal</div>
+          </div>
+          <div class="meal__items">
+            <div class="meal__item"><span>Protein</span><span>${(totals.protein||0).toFixed(1)} g</span></div>
+            <div class="meal__item"><span>Carbs</span><span>${(totals.carbs||0).toFixed(1)} g</span></div>
+            <div class="meal__item"><span>Fat</span><span>${(totals.fat||0).toFixed(1)} g</span></div>
+          </div>
+        </div>`;
+    }
+
+    meals.forEach(m=>{
+      const items = m.items || [];
+      html += `
+        <div class="meal">
+          <div class="meal__head">
+            <div class="meal__name">${m.name || "Meal"}</div>
+            <div class="meal__kcal">${items.length} items</div>
+          </div>
+          <div class="meal__items">
+            ${items.map(it => `
+              <div class="meal__item">
+                <span>${it.name || ("Food #" + it.id)}</span>
+                <span>${it.grams} g</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>`;
+    });
+
+    out.innerHTML = html || `<div class="meal"><div class="meal__name">Empty plan</div></div>`;
+  }
+
+  async function generate(){
+    try{
+      const payload = {
+        profile: {
+          // keep minimal; backend can also pull user profile if it wants
+          goal: "muscle gain",
+          activity: "moderate",
+          sex: "M",
+          age: 25
+        },
+        targets: {
+          kcal: Number(document.getElementById("kcal").value),
+          protein: Number(document.getElementById("protein").value),
+          fat: Number(document.getElementById("fat").value),
+          carbs: Number(document.getElementById("carbs").value),
+        },
+        restrictions: {
+          allergies: (document.getElementById("allergies").value || "")
+            .split(",").map(s=>s.trim()).filter(Boolean),
+          exclude: (document.getElementById("exclude").value || "")
+            .split(",").map(s=>s.trim()).filter(Boolean),
+        },
+        days: Number(document.getElementById("days").value || 1),
+      };
+
+      const data = await Nutri.apiPost("/api/generate-plan/", payload);
+      renderPlan(data);
+      Nutri.toast("Success", "Meal plan generated.");
+    }catch(e){
+      Nutri.toast("Error", e.message || "Failed");
+    }
+  }
+
+  return { fillDefaults, clear, generate };
+})();
+</script>
+{% endblock %}
