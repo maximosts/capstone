@@ -1,15 +1,12 @@
 // src/lib/api.ts
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
-function getCookie(name: string) {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()!.split(";").shift();
-  return undefined;
-}
+let csrfToken: string | null = null;
 
 export async function ensureCsrf() {
-  await fetch(`${BASE_URL}/api/csrf/`, { credentials: "include" });
+  const res = await fetch(`${BASE_URL}/api/csrf/`, { credentials: "include" });
+  const data = await res.json();
+  if (data.csrfToken) csrfToken = data.csrfToken;
 }
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
@@ -17,8 +14,8 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers || {});
 
   if (method !== "GET") {
-    const csrf = getCookie("csrftoken");
-    if (csrf) headers.set("X-CSRFToken", csrf);
+    if (!csrfToken) await ensureCsrf();
+    if (csrfToken) headers.set("X-CSRFToken", csrfToken);
     if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   }
 
