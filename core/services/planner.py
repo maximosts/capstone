@@ -802,7 +802,7 @@ def generate_template_plan(profile: dict, targets: dict, restrictions: dict, cat
     b_carb  = pick_breakfast_carb(catalog)
     b_prot  = pick_breakfast_protein(catalog)
     b_fruit = pick_fruit(catalog)
-    b_fat   = pick_fat(catalog)
+    b_fat   = pick_snack_fat(catalog)
     b_items = []
     if b_carb:  b_items.append(_as_item(b_carb, 80))
     if b_prot:
