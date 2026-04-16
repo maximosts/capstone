@@ -1,0 +1,164 @@
+[
+{
+  "model": "auth.user",
+  "pk": 1,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$4az3MqKUyoWnqYQNHFGmni$VjVDn8h600g/cKFJ3HY/Kj1QrXgk9yfHBMLxKKaisvo=",
+    "last_login": "2025-11-30T14:34:26.928Z",
+    "is_superuser": true,
+    "username": "maxts",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-20T09:45:40.518Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 2,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$su4qNxluzNPCRiqK6dTAJk$K+U+HbR3w43TTKZcXL38Gg0yuwHdBlpHu/y0pXXnWVY=",
+    "last_login": "2026-03-07T11:36:56.446Z",
+    "is_superuser": true,
+    "username": "maximos",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-21T16:23:04.117Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 3,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$ZaDCqCLnQrKF6iLCZgChTm$vRnD5J3XluB5oQKgNpEoP1C6K8CECva04Pmv8mM/Nig=",
+    "last_login": "2026-03-31T18:29:57.642Z",
+    "is_superuser": true,
+    "username": "m.tsamplakos@acg.edu",
+    "first_name": "",
+    "last_name": "",
+    "email": "m.tsamplakos@acg.edu",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-26T20:53:28Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 4,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$xnlmNAPvAXNVf0IABkHn4E$/I3roixj9huoYlKM0luvkvMWzHHWAwVcVVylPGUFem8=",
+    "last_login": "2026-03-30T20:15:38.102Z",
+    "is_superuser": false,
+    "username": "maxtsamb@outlook.com",
+    "first_name": "",
+    "last_name": "",
+    "email": "maxtsamb@outlook.com",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-08T08:54:28.486Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 5,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$qSmrU4IoC1Ao2ZOROuQiD0$M+pz6YvzCjU+MydOgmqNhLEPEMl1Cu3Zv7zxRXu0ELA=",
+    "last_login": "2026-02-26T09:48:18.321Z",
+    "is_superuser": false,
+    "username": "maximostsamplakos@outlook.com",
+    "first_name": "",
+    "last_name": "",
+    "email": "maximostsamplakos@outlook.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-02-26T09:48:17.627Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 6,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$JiheG7ZkSATX2s0bTljeYb$mQty9s/EFl3mRUcHP0zC7ieQMz3QSRQlEpKrZa9PND8=",
+    "last_login": "2026-02-26T09:49:40.417Z",
+    "is_superuser": false,
+    "username": "maximostsamb@gmail.com",
+    "first_name": "",
+    "last_name": "",
+    "email": "maximostsamb@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-02-26T09:49:39.750Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 7,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$HfiKICiASoO1C2n5vuYmdv$oIf/4g1jUkeZLFUz6gqn3NphQgyeKmALF6Xb5kR0NU0=",
+    "last_login": "2026-03-31T17:19:59.286Z",
+    "is_superuser": false,
+    "username": "max123@gmail.com",
+    "first_name": "",
+    "last_name": "",
+    "email": "max123@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-03-10T09:13:11.707Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 8,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$uNSUBRt0cC70ZdrFANpqeh$Y7HDiL2/SeCgqcEjMyqbDh5fZz1ZZhJ1KJEez7fSnWc=",
+    "last_login": "2026-03-10T12:56:02.732Z",
+    "is_superuser": false,
+    "username": "max2123@gmail.com",
+    "first_name": "",
+    "last_name": "",
+    "email": "max2123@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-03-10T12:56:01.961Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 9,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$8er8XzNPukCbPCh2hal2F1$bXJNY3twZDK+4COCiUOvH8AapM2PMIXWGnFB4uXvT1M=",
+    "last_login": "2026-03-31T17:27:18.838Z",
+    "is_superuser": false,
+    "username": "maximostsamplakos1@outlook.com",
+    "first_name": "",
+    "last_name": "",
+    "email": "maximostsamplakos1@outlook.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-03-31T17:27:18.178Z",
+    "groups": [],
+    "user_permissions": []
+  }
+}
+]
