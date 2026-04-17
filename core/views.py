@@ -1,24 +1,23 @@
 # core/views.py
 from __future__ import annotations
 
-from datetime import date
-from statistics import mode
-from typing import Any, Dict, Tuple
-import math
+import traceback
+import os
+from datetime import date, datetime, timedelta, timezone as dt_timezone
+from typing import Dict, Tuple
 
+from groq import Groq
+
+from django.db.models import Q, Count
 from django.utils import timezone
-from core.models import Profile, WeightLog, IntakeLog, PlanLog
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from django.contrib.auth import login as dj_login
-from datetime import date, timedelta
-from core.models import Plan
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
-from core.models import Profile, WeightLog, IntakeLog
+from core.models import (
+    Food, FoodEntry, Plan, PlanLog, Profile,
+    WeightLog, IntakeLog, Conversation, ChatMessage,
+)
 from core.services.bayes import run_weekly_bayes_update
 from core.services.planner import (
     build_catalog,
@@ -27,9 +26,6 @@ from core.services.planner import (
     generate_meal_plan,
 )
 
-# -------------------------
-# small parsing helpers
-# -------------------------
 def _to_int(v, default=None):
     try:
         if v is None or v == "":
@@ -48,11 +44,8 @@ def _to_float(v, default=None):
         return default
 
 
-# -------------------------
-# Targets helpers (auto-seed)
-# -------------------------
 def _estimate_initial_tdee(p: Profile) -> Tuple[float, float]:
-    # Mifflin-St Jeor + reasonable initial uncertainty
+    """Mifflin-St Jeor BMR × activity multiplier. Returns (tdee, sigma) for Bayesian prior."""
     sex = (p.sex or "M").upper()
     w = float(p.weight_kg or 0)
     h = float(p.height_cm or 0)
@@ -95,12 +88,10 @@ def _derive_macros(p: Profile, kcal_target: int) -> Dict[str, int]:
     protein = int(round(max(120, w * 2.0)))   # 2 g/kg, min 120g
     fat     = int(round(max(50,  w * 0.8)))   # 0.8 g/kg, min 50g
 
-    # BUG FIX: if protein + fat already consume more kcal than the target,
-    # trim fat (protein is higher priority) so targets are self-consistent.
-    MIN_CARB_KCAL = 80 * 4   # keep at least 80 g carbs (320 kcal)
+    # Trim fat before carbs when total macros exceed target; protein is highest priority.
+    MIN_CARB_KCAL = 80 * 4   # 80 g carbs minimum
     protein_kcal  = protein * 4
     if protein_kcal + MIN_CARB_KCAL >= kcal_target:
-        # protein alone barely fits — zero fat, minimum carbs
         protein = max(80, int((kcal_target - MIN_CARB_KCAL) / 4))
         fat     = 0
     else:
@@ -115,11 +106,9 @@ def _derive_macros(p: Profile, kcal_target: int) -> Dict[str, int]:
 
 
 def _ensure_profile_targets(p: Profile, force_recalc: bool = False) -> Dict[str, int]:
-    # if already set and no forced recalc -> return cached targets
     if not force_recalc and all([p.kcal_target, p.protein_g, p.fat_g, p.carbs_g]):
         return {"kcal": p.kcal_target, "protein": p.protein_g, "fat": p.fat_g, "carbs": p.carbs_g}
 
-    # seed posterior if missing
     if not p.tdee_mu or not p.tdee_sigma:
         mu, sigma = _estimate_initial_tdee(p)
         p.tdee_mu = mu
@@ -152,9 +141,6 @@ def _targets_for_request(request) -> Dict[str, int]:
     return t
 
 
-# -------------------------
-# Profile API
-# -------------------------
 @api_view(["GET", "PUT", "POST"])
 @permission_classes([IsAuthenticated])
 def profile_view(request):
@@ -271,13 +257,9 @@ def profile_view(request):
     return Response(response_data, status=200)
 
 
-# -------------------------
-# Planner API
-# -------------------------
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def generate_plan(request):
-    import traceback as _tb
     restrictions = request.data.get("restrictions", {}) or {}
     mode = (request.data.get("mode") or "rule").lower()
     PlanLog.objects.create(user=request.user, mode=mode)
@@ -333,21 +315,19 @@ def generate_plan(request):
             n = (name or "").lower()
             return any(t in n for t in _allergy)
 
-        from django.db.models import Q as _Q
-        from core.models import Food as _Food
         _existing_ids = {f["id"] for f in catalog}
 
-        # Force-fetch fat foods directly from DB
+        # Force-fetch fat foods directly from DB to guarantee variety
         _fat_queries = [
-            _Q(name__icontains="olive oil"),
-            _Q(name__icontains="walnut"),
-            _Q(name__icontains="almond") & ~_Q(name__icontains="butter"),
-            _Q(name__icontains="avocado"),
+            Q(name__icontains="olive oil"),
+            Q(name__icontains="walnut"),
+            Q(name__icontains="almond") & ~Q(name__icontains="butter"),
+            Q(name__icontains="avocado"),
         ]
         for _q in _fat_queries:
             if any(f.get("_slot") == "fat" for f in catalog):
                 break
-            _candidates = list(_Food.objects.filter(_q, kcal_per_100g__gt=0).exclude(
+            _candidates = list(Food.objects.filter(_q, kcal_per_100g__gt=0).exclude(
                 name__icontains="candy").exclude(name__icontains="cookie").exclude(
                 name__icontains="spray").values("id","name","kcal_per_100g","protein_per_100g","fat_per_100g","carbs_per_100g")[:5])
             for _f in _candidates:
@@ -361,16 +341,16 @@ def generate_plan(request):
 
         # Force-fetch veg foods directly from DB
         _veg_queries = [
-            _Q(name__icontains="broccoli") & ~_Q(name__icontains="subway") & ~_Q(name__icontains="sandwich"),
-            _Q(name__icontains="spinach") & ~_Q(name__icontains="noodle") & ~_Q(name__icontains="pasta"),
-            _Q(name__icontains="carrot") & ~_Q(name__icontains="cake") & ~_Q(name__icontains="muffin"),
-            _Q(name__icontains="zucchini"),
-            _Q(name__icontains="bell pepper") | _Q(name__icontains="capsicum"),
+            Q(name__icontains="broccoli") & ~Q(name__icontains="subway") & ~Q(name__icontains="sandwich"),
+            Q(name__icontains="spinach") & ~Q(name__icontains="noodle") & ~Q(name__icontains="pasta"),
+            Q(name__icontains="carrot") & ~Q(name__icontains="cake") & ~Q(name__icontains="muffin"),
+            Q(name__icontains="zucchini"),
+            Q(name__icontains="bell pepper") | Q(name__icontains="capsicum"),
         ]
         _veg_added = 0
         for _q in _veg_queries:
             if _veg_added >= 2: break
-            _candidates = list(_Food.objects.filter(_q, kcal_per_100g__gt=0).values(
+            _candidates = list(Food.objects.filter(_q, kcal_per_100g__gt=0).values(
                 "id","name","kcal_per_100g","protein_per_100g","fat_per_100g","carbs_per_100g")[:5])
             for _f in _candidates:
                 n = (_f["name"] or "").lower()
@@ -384,13 +364,13 @@ def generate_plan(request):
 
         # Force-fetch real fruit directly from DB
         _fruit_queries = [
-            _Q(name__icontains="banana") & ~_Q(name__icontains="bread") & ~_Q(name__icontains="oat"),
-            _Q(name__icontains="apple") & ~_Q(name__icontains="juice") & ~_Q(name__icontains="sauce") & ~_Q(name__icontains="oat"),
-            _Q(name__icontains="strawberr") & ~_Q(name__icontains="jam"),
-            _Q(name__icontains="blueberr") & ~_Q(name__icontains="muffin"),
+            Q(name__icontains="banana") & ~Q(name__icontains="bread") & ~Q(name__icontains="oat"),
+            Q(name__icontains="apple") & ~Q(name__icontains="juice") & ~Q(name__icontains="sauce") & ~Q(name__icontains="oat"),
+            Q(name__icontains="strawberr") & ~Q(name__icontains="jam"),
+            Q(name__icontains="blueberr") & ~Q(name__icontains="muffin"),
         ]
         for _q in _fruit_queries:
-            _candidates = list(_Food.objects.filter(_q, kcal_per_100g__gt=0).values(
+            _candidates = list(Food.objects.filter(_q, kcal_per_100g__gt=0).values(
                 "id","name","kcal_per_100g","protein_per_100g","fat_per_100g","carbs_per_100g")[:5])
             for _f in _candidates:
                 n = (_f["name"] or "").lower()
@@ -400,11 +380,6 @@ def generate_plan(request):
                         catalog.append(_f)
                         _existing_ids.add(_f["id"])
                     break
-        # ── END injection ──────────────────────────────────────────────────────
-
-        # Strip buckwheat groats from all meals — not a standard meal food
-        _BUCKWHEAT_KW = ["buckwheat","groat","groats","kasha"]
-
         # ── SWAP PRE-PROCESS: normalise swap values before passing to planner ──
         _swaps_raw = (restrictions.get("swaps") or [])
         _swaps_fixed = []
@@ -419,7 +394,6 @@ def generate_plan(request):
             _swaps_fixed.append(_sw2)
         restrictions = dict(restrictions)
         restrictions["swaps"] = _swaps_fixed
-        # ── END SWAP PRE-PROCESS ───────────────────────────────────────────────
 
         plan = generate_meal_plan(profile_obj, targets, restrictions, catalog, mode=mode)
 
@@ -436,7 +410,6 @@ def generate_plan(request):
                     it for it in _m.get("items", [])
                     if not any(t in (it.get("name") or "").lower() for t in _all_allergy_terms)
                 ]
-        # ── END ALLERGY SAFETY NET ─────────────────────────────────────────────
 
         # Strip unwanted foods from specific meals
         _breakfast_banned = ["buckwheat","groat","kasha","sweet potato"]
@@ -451,7 +424,6 @@ def generate_plan(request):
                                if not any(k in (it.get("name") or "").lower() for k in ["buckwheat","groat","kasha"])]
 
         # ── POST-PROCESS SWAPS: re-apply swaps after planner (catches cache issues) ──
-        from core.models import Food as _FoodSwap
         _FIELDS = ("id","name","kcal_per_100g","protein_per_100g","fat_per_100g","carbs_per_100g")
 
         def _swap_pick_protein(meal_name, prefer, catalog):
@@ -464,7 +436,7 @@ def generate_plan(request):
                         n = (f.get("name") or "").lower()
                         if "egg" in n and not any(x in n for x in ["noodle","pasta","powder","dried","substitute","eggplant"]):
                             return f, 150
-                    for f in _FoodSwap.objects.filter(kcal_per_100g__gt=0).exclude(
+                    for f in Food.objects.filter(kcal_per_100g__gt=0).exclude(
                             name__icontains="noodle").exclude(name__icontains="pasta").exclude(
                             name__icontains="dried").exclude(name__icontains="eggplant").values(*_FIELDS):
                         n = (f.get("name") or "").lower()
@@ -496,7 +468,7 @@ def generate_plan(request):
                         return f, 200
                 # Try DB
                 for kw in inc:
-                    qs = _FoodSwap.objects.filter(name__icontains=kw, kcal_per_100g__gt=0).values(*_FIELDS)
+                    qs = Food.objects.filter(name__icontains=kw, kcal_per_100g__gt=0).values(*_FIELDS)
                     for f in qs:
                         n = (f.get("name") or "").lower()
                         if not any(x in n for x in avoid+["subway","sandwich"]):
@@ -580,16 +552,7 @@ def generate_plan(request):
                     _meal["items"] = [it for it in _meal["items"]
                                       if _slot(it.get("name","")) not in ("carb","fruit")]
                     _meal["items"].insert(0, _item2(_carb_new, _carb_g))
-        # ── END POST-PROCESS SWAPS ────────────────────────────────────────────
-
         # ── POST-PROCESS: inject fat/veg/fruit that the old planner strips ──────
-
-        def _find_in_catalog(catalog, slot, allergy_terms):
-            for f in catalog:
-                n = (f.get("name") or "").lower()
-                if _slot(n) == slot and not any(t in n for t in allergy_terms):
-                    return f
-            return None
 
         _allergy2 = [str(a).lower() for a in (restrictions.get("allergies") or [])]
         _allergy2 += [str(e).lower() for e in (restrictions.get("exclusions") or restrictions.get("exclude") or [])]
@@ -600,15 +563,14 @@ def generate_plan(request):
         _fat_avoid_words = _allergy2 + ["spray","candy","noodle","pasta","spaghetti","sauce","dressing","mayo","cookie","cream","flour"]
 
         # Seed olive oil into DB if it doesn't exist yet
-        from core.models import Food as _FoodModel
         _olive_seed = dict(name="Olive oil, extra virgin", kcal_per_100g=884,
                            protein_per_100g=0, fat_per_100g=100, carbs_per_100g=0, source="seed")
-        if not _FoodModel.objects.filter(name="Olive oil, extra virgin").exists():
-            _new_f = _FoodModel.objects.create(**_olive_seed)
+        if not Food.objects.filter(name="Olive oil, extra virgin").exists():
+            _new_f = Food.objects.create(**_olive_seed)
             catalog.append({"id": _new_f.id, "name": "Olive oil, extra virgin",
                              "kcal_per_100g": 884, "protein_per_100g": 0, "fat_per_100g": 100, "carbs_per_100g": 0})
         else:
-            _existing_oil = _FoodModel.objects.filter(name="Olive oil, extra virgin").values(
+            _existing_oil = Food.objects.filter(name="Olive oil, extra virgin").values(
                 "id","name","kcal_per_100g","protein_per_100g","fat_per_100g","carbs_per_100g").first()
             if _existing_oil and _existing_oil["id"] not in {f["id"] for f in catalog}:
                 catalog.append(_existing_oil)
@@ -748,10 +710,6 @@ def generate_plan(request):
                     break
             if not _trimmed:
                 break
-        # ── END REBALANCE ──────────────────────────────────────────────────────
-
-        # ── END POST-PROCESS ───────────────────────────────────────────────────
-
         ok, err = validate_plan(plan, catalog)
         if not ok:
             return Response({"error": f"Invalid plan: {err}", "raw": plan}, status=400)
@@ -809,7 +767,7 @@ def generate_plan(request):
         return Response(payload, status=200)
 
     except Exception as e:
-        return Response({"error": str(e), "traceback": _tb.format_exc()}, status=500)
+        return Response({"error": str(e), "traceback": traceback.format_exc()}, status=500)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -819,9 +777,6 @@ def latest_plan(request):
         return Response({}, status=204)  # or {"plan": None}
     return Response(plan.payload, status=200)
 
-# -------------------------
-# Logging APIs
-# -------------------------
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def log_weight(request):
@@ -920,35 +875,6 @@ def log_intake(request):
     if request.data.get("auto_update"):
         result["bayes_update"] = run_weekly_bayes_update(request.user.id)
     return Response(result, status=200)
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_weight_logs(request):
-    """
-    Returns the user's weight logs as a time series.
-    Optional query params:
-      - days=30  (default 90)
-    """
-    try:
-        days = int(request.query_params.get("days", 90))
-    except Exception:
-        days = 90
-
-    qs = (
-        WeightLog.objects
-        .filter(user=request.user)
-        .order_by("date")
-    )
-
-    if days > 0:
-        # filter last N days (inclusive)
-        from datetime import date, timedelta
-        start = date.today() - timedelta(days=days - 1)
-        qs = qs.filter(date__gte=start)
-
-    data = [{"date": wl.date.isoformat(), "weight_kg": float(wl.weight_kg)} for wl in qs]
-
-    return Response({"weights": data}, status=200)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -1058,7 +984,6 @@ def dashboard_summary(request):
     }
 
     # ── Today's tracker totals (from FoodEntry) ──────────────────────────
-    from core.models import FoodEntry
     today_entries = FoodEntry.objects.filter(user=user, date=today).select_related("food")
     today_kcal    = round(sum(e.kcal    for e in today_entries), 1)
     today_protein = round(sum(e.protein for e in today_entries), 1)
@@ -1096,9 +1021,7 @@ def dashboard_summary(request):
         },
         status=200,
     )
-# -------------------------
-# Bayesian -> targets endpoint
-# -------------------------
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -1136,30 +1059,7 @@ def recompute_targets(request):
     )
 
 
-# ----------------- FRONTEND PAGES (legacy Django templates) -----------------
-@login_required
-def dashboard(request):
-    return render(request, "dashboard.html")
 
-
-@login_required
-def planner(request):
-    return render(request, "planner.html")
-
-
-@login_required
-def logs(request):
-    return render(request, "logs.html")
-
-
-@login_required
-def profile(request):
-    return render(request, "profile.html")
-
-
-# ─────────────────────────────────────────
-# Food Search
-# ─────────────────────────────────────────
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def food_search(request):
@@ -1167,11 +1067,9 @@ def food_search(request):
     if len(q) < 2:
         return Response({"results": []})
 
-    from core.models import Food as FoodModel
-    from django.db.models import Q
 
     foods = (
-        FoodModel.objects
+        Food.objects
         .filter(Q(name__icontains=q) | Q(brand__icontains=q))
         .exclude(kcal_per_100g__isnull=True)
         .order_by("name")[:20]
@@ -1191,13 +1089,9 @@ def food_search(request):
     return Response({"results": results})
 
 
-# ─────────────────────────────────────────
-# Calorie Tracker (FoodEntry CRUD)
-# ─────────────────────────────────────────
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def tracker_entries(request):
-    from core.models import FoodEntry, Food as FoodModel
 
     if request.method == "GET":
         date_str = request.query_params.get("date") or date.today().isoformat()
@@ -1238,8 +1132,8 @@ def tracker_entries(request):
         return Response({"error": "food_id and grams are required"}, status=400)
 
     try:
-        food = FoodModel.objects.get(id=food_id)
-    except FoodModel.DoesNotExist:
+        food = Food.objects.get(id=food_id)
+    except Food.DoesNotExist:
         return Response({"error": "Food not found"}, status=404)
 
     entry = FoodEntry.objects.create(
@@ -1272,7 +1166,6 @@ def tracker_entries(request):
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def tracker_delete(request, entry_id):
-    from core.models import FoodEntry
 
     try:
         entry = FoodEntry.objects.get(id=entry_id, user=request.user)
@@ -1295,16 +1188,9 @@ def tracker_delete(request, entry_id):
     return Response({"deleted": True})
 
 
-# ─────────────────────────────────────────
-# Ollama Chat
-# ─────────────────────────────────────────
-# Chat — multi-conversation
-# ─────────────────────────────────────────
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def conversation_list(request):
-    from core.models import Conversation, ChatMessage
     convos = Conversation.objects.filter(user=request.user).exclude(title__startswith="Coaching — ")
     return Response({
         "conversations": [
@@ -1323,7 +1209,6 @@ def conversation_list(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def conversation_create(request):
-    from core.models import Conversation
     title = (request.data.get("title") or "New conversation").strip()[:200]
     convo = Conversation.objects.create(user=request.user, title=title)
     return Response({"id": convo.id, "title": convo.title, "created_at": convo.created_at.isoformat()}, status=201)
@@ -1332,7 +1217,6 @@ def conversation_create(request):
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def conversation_delete(request, convo_id):
-    from core.models import Conversation
     try:
         convo = Conversation.objects.get(id=convo_id, user=request.user)
     except Conversation.DoesNotExist:
@@ -1344,7 +1228,6 @@ def conversation_delete(request, convo_id):
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def conversation_rename(request, convo_id):
-    from core.models import Conversation
     try:
         convo = Conversation.objects.get(id=convo_id, user=request.user)
     except Conversation.DoesNotExist:
@@ -1359,7 +1242,6 @@ def conversation_rename(request, convo_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def conversation_messages(request, convo_id):
-    from core.models import Conversation, ChatMessage
     try:
         convo = Conversation.objects.get(id=convo_id, user=request.user)
     except Conversation.DoesNotExist:
@@ -1378,9 +1260,6 @@ def conversation_messages(request, convo_id):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def chat(request):
-    import urllib.request, json as _json
-    from core.models import FoodEntry, Conversation, ChatMessage
-
     convo_id = request.data.get("conversation_id")
     messages  = request.data.get("messages", [])
 
@@ -1470,8 +1349,6 @@ def chat(request):
         system_prompt += "Nothing logged yet.\n"
 
     try:
-        import os
-        from groq import Groq
         client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -1497,9 +1374,6 @@ def chat(request):
         return Response({"error": f"AI error: {e}"}, status=502)
 
 
-# ─────────────────────────────────────────
-# Chat History (legacy - kept for compat)
-# ─────────────────────────────────────────
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def chat_history(request):
@@ -1512,13 +1386,9 @@ def chat_clear(request):
     return Response({"cleared": 0})
 
 
-# ─────────────────────────────────────────
-# Create Custom Food
-# ─────────────────────────────────────────
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_food(request):
-    from core.models import Food as FoodModel
 
     name    = (request.data.get("name") or "").strip()
     kcal    = request.data.get("kcal_per_100g")
@@ -1542,7 +1412,7 @@ def create_food(request):
     brand    = (request.data.get("brand") or "").strip()
     category = (request.data.get("category") or "custom").strip()
 
-    food = FoodModel.objects.create(
+    food = Food.objects.create(
         name             = name,
         brand            = brand,
         category         = category,
@@ -1566,10 +1436,6 @@ def create_food(request):
 
 
 
-# ─────────────────────────────────────────
-# Coaching
-# ─────────────────────────────────────────
-
 COACHING_PLANS = {
     "starter": {"name": "Starter", "price": "€29/mo"},
     "pro":     {"name": "Pro",     "price": "€59/mo"},
@@ -1578,7 +1444,6 @@ COACHING_PLANS = {
 
 def _get_coaching_conversation(user):
     """Get or create the coaching conversation for this user."""
-    from core.models import Conversation
     title = f"Coaching — {user.username}"
     convo, _ = Conversation.objects.get_or_create(user=user, title=title)
     return convo
@@ -1604,8 +1469,6 @@ def coaching_subscribe(request):
     if plan_id not in COACHING_PLANS:
         return Response({"error": "Invalid plan"}, status=400)
 
-    from core.models import Conversation, ChatMessage
-    from django.utils import timezone
 
     profile, _ = Profile.objects.get_or_create(user=request.user)
     profile.coaching_plan  = plan_id
@@ -1638,7 +1501,6 @@ def coaching_subscribe(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def coaching_messages(request):
-    from core.models import ChatMessage
     profile, _ = Profile.objects.get_or_create(user=request.user)
     if not profile.coaching_plan:
         return Response({"error": "No active coaching plan"}, status=403)
@@ -1661,7 +1523,6 @@ def coaching_messages(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def coaching_send(request):
-    from core.models import ChatMessage
     content = (request.data.get("content") or "").strip()
     if not content:
         return Response({"error": "Empty message"}, status=400)
@@ -1699,19 +1560,16 @@ def coaching_admin_inbox(request):
     """Staff only — list all users with active coaching plans + last message."""
     if not request.user.is_staff:
         return Response({"error": "Admin only"}, status=403)
-    from core.models import Conversation, ChatMessage
     profiles = Profile.objects.exclude(coaching_plan="").exclude(coaching_plan=None).select_related("user")
     result = []
     for p in profiles:
         title = f"Coaching — {p.user.username}"
         convo = Conversation.objects.filter(user=p.user, title=title).first()
         last_msg = None
-        unread = 0
         if convo:
             last = convo.messages.order_by("-created_at").first()
             if last:
                 last_msg = {"content": last.content[:120], "role": last.role, "created_at": last.created_at.isoformat()}
-            unread = convo.messages.filter(role="user").count()
         result.append({
             "user_id":       p.user.id,
             "username":      p.user.username,
@@ -1731,7 +1589,6 @@ def coaching_admin_thread(request, convo_id):
     """Staff only — get full message thread for a coaching conversation."""
     if not request.user.is_staff:
         return Response({"error": "Admin only"}, status=403)
-    from core.models import Conversation, ChatMessage
     try:
         convo = Conversation.objects.get(id=convo_id)
     except Conversation.DoesNotExist:
@@ -1753,7 +1610,6 @@ def coaching_admin_reply(request, convo_id):
     """Staff only — post a coach reply into a coaching conversation."""
     if not request.user.is_staff:
         return Response({"error": "Admin only"}, status=403)
-    from core.models import Conversation, ChatMessage
     content = (request.data.get("content") or "").strip()
     if not content:
         return Response({"error": "Empty message"}, status=400)
@@ -1765,16 +1621,10 @@ def coaching_admin_reply(request, convo_id):
     return Response({"id": msg.id, "role": msg.role, "content": msg.content, "created_at": msg.created_at.isoformat()}, status=201)
 
 
-# ─────────────────────────────────────────
-# Bayesian Debug
-# ─────────────────────────────────────────
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def bayes_debug(request):
-    from datetime import datetime, timedelta, timezone
-    from core.services.bayes import run_weekly_bayes_update
-
-    since = (datetime.now(timezone.utc) - timedelta(days=28)).date()
+    since = (datetime.now(dt_timezone.utc) - timedelta(days=28)).date()
 
     weight_logs = list(
         WeightLog.objects.filter(user=request.user, date__gte=since)
@@ -1816,23 +1666,18 @@ def bayes_debug(request):
     })
 
 
-# ─────────────────────────────────────────
-# Food DB Admin
-# ─────────────────────────────────────────
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def food_admin_list(request):
     if not request.user.is_staff:
         return Response({"error": "Admin access required"}, status=403)
-    from core.models import Food as FoodModel
-    from django.db.models import Q, Count
 
     category = request.query_params.get("category", "")
     q        = (request.query_params.get("q") or "").strip()
     page     = max(1, int(request.query_params.get("page", 1)))
     per_page = 50
 
-    qs = FoodModel.objects.all()
+    qs = Food.objects.all()
     if category:
         qs = qs.filter(category=category)
     if q:
@@ -1843,7 +1688,7 @@ def food_admin_list(request):
     start = (page - 1) * per_page
     foods = qs[start:start + per_page]
 
-    cats = list(FoodModel.objects.values("category").annotate(n=Count("id")).order_by("-n"))
+    cats = list(Food.objects.values("category").annotate(n=Count("id")).order_by("-n"))
 
     return Response({
         "total": total, "page": page, "per_page": per_page,
@@ -1864,10 +1709,9 @@ def food_admin_list(request):
 def food_admin_delete(request, food_id):
     if not request.user.is_staff:
         return Response({"error": "Admin access required"}, status=403)
-    from core.models import Food as FoodModel
     try:
-        FoodModel.objects.get(id=food_id).delete()
-    except FoodModel.DoesNotExist:
+        Food.objects.get(id=food_id).delete()
+    except Food.DoesNotExist:
         return Response({"error": "Not found"}, status=404)
     return Response({"deleted": True})
 
@@ -1877,17 +1721,16 @@ def food_admin_delete(request, food_id):
 def food_admin_bulk_delete(request):
     if not request.user.is_staff:
         return Response({"error": "Admin access required"}, status=403)
-    from core.models import Food as FoodModel
     ids          = request.data.get("ids") or []
     category     = request.data.get("category")
     min_name_len = request.data.get("min_name_len")
 
     if ids:
-        qs = FoodModel.objects.filter(id__in=ids)
+        qs = Food.objects.filter(id__in=ids)
     elif category:
-        qs = FoodModel.objects.filter(category=category)
+        qs = Food.objects.filter(category=category)
     elif min_name_len:
-        qs = FoodModel.objects.filter(name__regex=r'.{' + str(int(min_name_len)) + r',}')
+        qs = Food.objects.filter(name__regex=r'.{' + str(int(min_name_len)) + r',}')
     else:
         return Response({"error": "Provide ids, category, or min_name_len"}, status=400)
 

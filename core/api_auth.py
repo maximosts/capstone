@@ -1,4 +1,6 @@
 # core/api_auth.py
+from datetime import date
+
 from django.contrib.auth import authenticate, login as dj_login, logout as dj_logout
 from django.contrib.auth.models import User
 from django.middleware.csrf import get_token
@@ -8,7 +10,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from core.models import Profile
+from core.models import Profile, WeightLog
 
 
 @api_view(["GET"])
@@ -47,20 +49,6 @@ def logout_view(request):
     return Response({"detail": "ok"})
 
 
-def _to_float(v, field_name: str):
-    try:
-        return float(v)
-    except Exception:
-        raise ValueError(f"Invalid {field_name}")
-
-
-def _to_int(v, field_name: str):
-    try:
-        return int(v)
-    except Exception:
-        raise ValueError(f"Invalid {field_name}")
-
-
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def register_view(request):
@@ -94,7 +82,7 @@ def register_view(request):
 
     weight = float(weight_kg) if weight_kg else 75.0
 
-    profile, _ = Profile.objects.get_or_create(
+    Profile.objects.get_or_create(
         user=user,
         defaults={
             "age":        int(age) if age else 25,
@@ -109,10 +97,8 @@ def register_view(request):
     )
 
     # Seed the first weight log so Bayesian updates have a starting point
-    from datetime import date as _date
-    from core.models import WeightLog
     WeightLog.objects.get_or_create(
-        user=user, date=_date.today(), defaults={"weight_kg": weight}
+        user=user, date=date.today(), defaults={"weight_kg": weight}
     )
 
     dj_login(request, user)
