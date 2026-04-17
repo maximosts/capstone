@@ -433,15 +433,14 @@ def generate_plan(request):
                 p = prefer.lower()
                 if p in ("eggs","egg"):
                     _egg_avoid = ["noodle","pasta","powder","dried","substitute","eggplant","fried","scrambled","benedict","mcmuffin"]
-                    for f in catalog:
-                        n = (f.get("name") or "").lower()
-                        if "egg" in n and not any(x in n for x in _egg_avoid):
-                            return f, 150
+                    egg_candidates = [f for f in catalog if "egg" in (f.get("name") or "").lower() and not any(x in (f.get("name") or "").lower() for x in _egg_avoid)]
+                    import logging as _lg; _lg.getLogger(__name__).warning("[EGG SWAP] catalog_size=%d egg_candidates=%s", len(catalog), [f.get("name") for f in egg_candidates])
+                    for f in egg_candidates:
+                        return f, 150
                     # Direct DB query (no kcal filter in case macros were not fully entered)
-                    for f in Food.objects.filter(
-                            name__icontains="egg").exclude(
-                            name__icontains="noodle").exclude(name__icontains="pasta").exclude(
-                            name__icontains="dried").exclude(name__icontains="eggplant").values(*_FIELDS).order_by("name"):
+                    db_eggs = list(Food.objects.filter(name__icontains="egg").exclude(name__icontains="noodle").exclude(name__icontains="pasta").exclude(name__icontains="dried").exclude(name__icontains="eggplant").values(*_FIELDS).order_by("name"))
+                    _lg.getLogger(__name__).warning("[EGG SWAP] db_eggs=%s", [f.get("name") for f in db_eggs])
+                    for f in db_eggs:
                         n = (f.get("name") or "").lower()
                         if not any(x in n for x in _egg_avoid):
                             catalog.append(f)
