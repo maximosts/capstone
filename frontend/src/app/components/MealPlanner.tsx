@@ -69,7 +69,6 @@ const SWAP_OPTIONS = {
     Breakfast: [
       { value: "oats", label: "Oats" },
       { value: "bread", label: "Bread/Wrap" },
-      { value: "bagel", label: "Bagel" },
     ],
     Lunch: [
       { value: "rice", label: "Rice" },
