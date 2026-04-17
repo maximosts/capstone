@@ -78,7 +78,7 @@ export default function App() {
             isStaff={me?.is_staff ?? false}
             onLoggedOut={() => { setMe(null); setCurrentPage("landing"); }}
           />
-          <main className="max-w-7xl mx-auto px-6 py-8">
+          <main className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
             <Dashboard onNavigate={handleNavigate} />
           </main>
           <ChatWidget />
@@ -129,7 +129,7 @@ export default function App() {
         isStaff={me?.is_staff ?? false}
         onLoggedOut={() => { setMe(null); setCurrentPage("landing"); }}
       />
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
         {currentPage === "dashboard"  && <Dashboard onNavigate={handleNavigate} />}
         {currentPage === "planner"    && <MealPlanner />}
         {currentPage === "tracker"    && <CalorieTracker />}
