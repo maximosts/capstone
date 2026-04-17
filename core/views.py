@@ -432,15 +432,18 @@ def generate_plan(request):
             if ml == "breakfast":
                 p = prefer.lower()
                 if p in ("eggs","egg"):
+                    _egg_avoid = ["noodle","pasta","powder","dried","substitute","eggplant","fried","scrambled","benedict","mcmuffin"]
                     for f in catalog:
                         n = (f.get("name") or "").lower()
-                        if "egg" in n and not any(x in n for x in ["noodle","pasta","powder","dried","substitute","eggplant"]):
+                        if "egg" in n and not any(x in n for x in _egg_avoid):
                             return f, 150
-                    for f in Food.objects.filter(kcal_per_100g__gt=0).exclude(
+                    # Direct DB query for eggs (whole/raw preferred)
+                    for f in Food.objects.filter(
+                            name__icontains="egg", kcal_per_100g__gt=0).exclude(
                             name__icontains="noodle").exclude(name__icontains="pasta").exclude(
-                            name__icontains="dried").exclude(name__icontains="eggplant").values(*_FIELDS):
+                            name__icontains="dried").exclude(name__icontains="eggplant").values(*_FIELDS).order_by("name"):
                         n = (f.get("name") or "").lower()
-                        if "egg" in n:
+                        if not any(x in n for x in _egg_avoid):
                             catalog.append(f)
                             return f, 150
                 if p in ("whey","protein powder"):
