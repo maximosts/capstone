@@ -215,7 +215,7 @@ _FRIENDLY = [
     (["tilapia"],                                                  "Tilapia"),
     (["cod"],                                                      "Cod"),
     (["shrimp"],                                                   "Shrimp"),
-    (["egg, whole","whole egg","eggs, whole"],                     "Eggs"),
+    (["egg, whole","whole egg","eggs, whole","egg, large","egg, medium","egg, small","egg,"],  "Eggs"),
     (["egg white"],                                                "Egg whites"),
     (["rolled oats","oats, rolled"],                               "Rolled oats"),
     (["oatmeal"],                                                  "Oatmeal"),

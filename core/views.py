@@ -437,9 +437,9 @@ def generate_plan(request):
                         n = (f.get("name") or "").lower()
                         if "egg" in n and not any(x in n for x in _egg_avoid):
                             return f, 150
-                    # Direct DB query for eggs (whole/raw preferred)
+                    # Direct DB query (no kcal filter in case macros were not fully entered)
                     for f in Food.objects.filter(
-                            name__icontains="egg", kcal_per_100g__gt=0).exclude(
+                            name__icontains="egg").exclude(
                             name__icontains="noodle").exclude(name__icontains="pasta").exclude(
                             name__icontains="dried").exclude(name__icontains="eggplant").values(*_FIELDS).order_by("name"):
                         n = (f.get("name") or "").lower()
