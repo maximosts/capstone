@@ -4,7 +4,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Activity, ArrowLeft } from "lucide-react";
-import { apiFetch, ensureCsrf } from "../../lib/api";
+import { apiFetch, ensureCsrf, setAuthToken } from "../../lib/api";
 
 interface LoginProps {
   onNavigate: (page: string) => void;
@@ -36,7 +36,8 @@ export function Login({ onNavigate }: LoginProps) {
     setSubmitting(true);
     try {
       await ensureCsrf();
-      await apiFetch("/api/auth/login/", { method: "POST", body: JSON.stringify({ email, password }) });
+      const loginRes = await apiFetch("/api/auth/login/", { method: "POST", body: JSON.stringify({ email, password }) });
+      if (loginRes?.token) setAuthToken(loginRes.token);
       await apiFetch("/api/auth/me/");
       onNavigate("dashboard");
     } catch (err: any) {

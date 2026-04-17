@@ -1,5 +1,5 @@
 import React from "react";
-import { apiFetch, ensureCsrf } from "../../lib/api";
+import { apiFetch, ensureCsrf, setAuthToken } from "../../lib/api";
 import { Button } from "./ui/button";
 
 interface NavigationProps {
@@ -31,6 +31,7 @@ export function Navigation({
     try {
       await ensureCsrf();
       await apiFetch("/api/auth/logout/", { method: "POST" });
+      setAuthToken(null);
       onLoggedOut();
       onNavigate("landing");
     } catch (err: any) {

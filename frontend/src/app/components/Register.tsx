@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
 import { Activity, ArrowLeft } from "lucide-react";
-import { apiFetch, ensureCsrf } from "../../lib/api";
+import { apiFetch, ensureCsrf, setAuthToken } from "../../lib/api";
 
 interface RegisterProps {
   onNavigate: (page: string) => void;
@@ -64,7 +64,7 @@ export function Register({ onNavigate }: RegisterProps) {
     setSubmitting(true);
     try {
       await ensureCsrf();
-      await apiFetch("/api/auth/register/", {
+      const regRes = await apiFetch("/api/auth/register/", {
         method: "POST",
         body: JSON.stringify({
           email: formData.email, password: formData.password,
@@ -74,6 +74,7 @@ export function Register({ onNavigate }: RegisterProps) {
           goal: formData.goal, allergies: formData.allergies, exclusions: formData.exclusions,
         }),
       });
+      if (regRes?.token) setAuthToken(regRes.token);
       onNavigate("dashboard");
     } catch (err: any) {
       alert(err?.detail || err?.error || "Registration failed");

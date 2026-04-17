@@ -10,6 +10,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from rest_framework.authtoken.models import Token
+
 from core.models import Profile, WeightLog
 
 
@@ -39,7 +41,8 @@ def login_view(request):
         return Response({"detail": "Invalid credentials"}, status=400)
 
     dj_login(request, user)
-    return Response({"detail": "ok"})
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({"detail": "ok", "token": token.key})
 
 
 @api_view(["POST"])
@@ -102,4 +105,5 @@ def register_view(request):
     )
 
     dj_login(request, user)
-    return Response({"detail": "ok"})
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({"detail": "ok", "token": token.key})
