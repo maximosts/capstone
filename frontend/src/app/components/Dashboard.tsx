@@ -336,16 +336,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h2 className="mb-1">Dashboard</h2>
           <p className="text-muted-foreground text-sm">Overview of your nutrition goals and progress</p>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
-          <Button onClick={() => onNavigate("planner")} className="gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => onNavigate("planner")} className="gap-2 flex-1 sm:flex-none">
             <Utensils className="w-4 h-4" /> Generate Meal Plan
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => onNavigate("logs")}>
+          <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={() => onNavigate("logs")}>
             <Scale className="w-4 h-4" /> Log Weight
           </Button>
         </div>

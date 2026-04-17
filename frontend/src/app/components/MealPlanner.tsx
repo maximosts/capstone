@@ -149,7 +149,7 @@ function MealCard({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="flex items-center gap-3">
             <CardTitle className="text-lg">{title}</CardTitle>
             <Badge variant="secondary" className="text-xs">
@@ -158,12 +158,12 @@ function MealCard({
           </div>
 
           {/* Swap controls */}
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             {showProtein && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground hidden sm:inline">Protein</span>
                 <select
-                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                  className="h-9 rounded-md border bg-background px-2 text-sm min-w-0 max-w-[130px]"
                   value={proteinSwap}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -397,20 +397,18 @@ export function MealPlanner() {
       </div>
 
       {/* Controls */}
-      <div className="flex gap-3 mb-6 justify-end">
-        <Button className="gap-2" onClick={handleGenerate} disabled={loading}>
+      <div className="flex flex-wrap gap-2 mb-6">
+        <Button className="gap-2 flex-1 sm:flex-none" onClick={handleGenerate} disabled={loading}>
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           {loading ? "Generating..." : "Generate Plan"}
         </Button>
-        <Button variant="outline" className="gap-2" onClick={handleExportPdf} disabled={!plan}>
+        <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={handleExportPdf} disabled={!plan}>
           <Download className="w-4 h-4" />
           Export PDF
         </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setSwaps([])} disabled={swaps.length === 0}>
-            Clear swaps
-          </Button>
-        </div>
+        <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setSwaps([])} disabled={swaps.length === 0}>
+          Clear swaps
+        </Button>
       </div>
 
 
