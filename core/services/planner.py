@@ -108,7 +108,7 @@ def _macro_ok(f: Dict) -> bool:
 def _classify(name: str) -> str:
     """Classify a food name into a slot. Uses broad oil/nut matching for fat."""
     n = _name(name)
-    if _has_any(n, PROTEIN_KW_POULTRY + PROTEIN_KW_EGGS + PROTEIN_KW_DAIRY + PROTEIN_KW_WHEY + PROTEIN_KW_SEAFOOD + PROTEIN_KW_FISH):
+    if "eggplant" not in n and _has_any(n, PROTEIN_KW_POULTRY + PROTEIN_KW_EGGS + PROTEIN_KW_DAIRY + PROTEIN_KW_WHEY + PROTEIN_KW_SEAFOOD + PROTEIN_KW_FISH):
         return "protein"
     if _has_any(n, CARB_KW_OATS + CARB_KW_RICE + CARB_KW_PASTA + CARB_KW_POTATO + CARB_KW_BREAD):
         return "carb"
@@ -335,7 +335,7 @@ def _force_include_staples(filtered: List[Dict], allergy_terms: List[str] = None
     # Proteins
     add_best(["chicken","breast"], prefer=["raw","skinless","boneless"], avoid=["cooked","fried","breaded"])
     add_best(["turkey","breast"],  prefer=["raw","skinless","boneless"], avoid=["cooked","fried","breaded"])
-    add_best(["egg","whole"], prefer=["raw","fresh"], avoid=["dried","powdered"])
+    add_best(["egg","whole"], prefer=["raw","fresh"], avoid=["dried","powdered","eggplant"])
     add_best(["greek yogurt","yogurt"], prefer=["plain","greek"], avoid=["sweet","flavored","fruit","frozen"])
     add_best(["salmon"], prefer=["raw","fresh","atlantic"], avoid=["smoked","canned","cured"])
 
@@ -458,7 +458,7 @@ def pick_breakfast_protein(catalog, prefer=None):
     ]:
         if p and not any(p in k for k in kw_list): continue
         f = _pick_best(catalog, include=kw_list, prefer=pref,
-                       avoid=["dried","powdered","sweet","flavored","fruit","frozen","ice cream","bar","ready-to-drink"])
+                       avoid=["dried","powdered","sweet","flavored","fruit","frozen","ice cream","bar","ready-to-drink","eggplant"])
         if f and not _has_any(f["name"], list(BREAKFAST_BANNED_KW)):
             return f
     return None
